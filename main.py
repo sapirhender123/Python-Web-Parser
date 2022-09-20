@@ -3,45 +3,21 @@ from bs4 import BeautifulSoup as bs
 import os
 import urllib
 import xlsxwriter
-
-'''
-fp = urllib.request.urlopen("https://collaborate.mitre.org/attackics/index.php/Main_Page")
-mybytes = fp.read()
-mystr = mybytes.decode("utf8")
-fp.close()
-
-print(mystr)
+import pandas as pd
 
 
-base=os.path.dirname(os.path.abspath('main.py'))
-# open the HTML file
-#html=open(os.path.join(base, 'ATT&CK.html'))
-
-
-'''
 
 INDEX_TACTIC = 9
+
+
 def create_html(link, name_for_html):
     urllib.request.urlretrieve(link, name_for_html)
-
-'''
-def read_html():
-    fp = urllib.request.urlopen("http://www.python.org")
-    mybytes = fp.read()
-
-    mystr = mybytes.decode("utf8")
-    fp.close()
-'''
 
 
 def find_specific_tag_in_html(html_name, specific_tag):
     file = open(html_name, encoding="utf8")
     soup_file = bs(file, 'html.parser')
     return soup_file.findAll(specific_tag)
-
-
-def find_another_attr():
-    find_specific_tag_in_html('tr')
 
 
 def get_links_and_ids(html_name):
@@ -59,85 +35,65 @@ def get_links_and_ids(html_name):
     return urls, ids
 
 
-'''
-# return the 
-∙	TTP ID [String] 
-∙	TTP Name [String] 
-∙	Tactic [String] 
-∙	Description [String] 
-∙	Mitigations [List of String, separated by comma]
-'''
+def create_excel_file(ids_list, names_list, tactic_list, description_list):
+    workbook = xlsxwriter.Workbook("Results.xlsx")
+    worksheet = workbook.add_worksheet("namesheet")
 
-
-def parse_link(html_file):
-    pass
-
-
-def create_excel_file(input_dict):
-    workbook = xlsxwriter.Workbook('Result.xlsx')
-    bold = workbook.add_format({'bold': True})
-    worksheet = workbook.add_worksheet()
-    col = 0
-    for key, value in input_dict.items():
-        width = max([len(x) for x in value])
-        width = max([width, len(key)]) + 5
-
-        worksheet.write(0, col, key, bold)
-        worksheet.write_column(1, col, value)
-        worksheet.set_column(col, col, width)
-        col += 1
+    worksheet.write_column('A1', ids_list)
+    worksheet.write_column('B1', names_list)
+    worksheet.write_column('C1', tactic_list)
+    worksheet.write_column('D1', description_list)
 
     workbook.close()
 
 
-'''
-links = soup.findAll('a', href=True)
-for link in links:
-    urls.append(link['href'])
-#print(urls)
+def find_name(html_name):
+    return find_specific_tag_in_html(html_name, "tbody")[0].findChildren()[0].text
 
 
+def find_tactic(html_name):
+    return find_specific_tag_in_html(html_name, "tbody")[0].findChildren()[INDEX_TACTIC].text
 
-unordered_list=soup.find("div",
-      {"class":"matrix_container"})
-for child in unordered_list.children:
-    print (child)
-children = unordered_list.findChildren()
-for child in children:
-    print (child)
-    '''
 
-create_html("https://collaborate.mitre.org/attackics/index.php/Main_Page", "ATT&CK.html")
-res_links, res_ids = get_links_and_ids('ATT&CK.html')
+def find_description(html_name):
+    return find_specific_tag_in_html(html_name, "p")[1].text
 
-names = []
-tactics = []
-descriptions = []
-for _link in res_links:
-    name = 'temp.html'
-    print("looking now at link: https://collaborate.mitre.org/" + _link)
-    create_html('https://collaborate.mitre.org/' + _link, name)
 
-    # create parser
-    soup = bs(name, 'html.parser')
+def main():
+    create_html("https://collaborate.mitre.org/attackics/index.php/Main_Page", "ATT&CK.html")
 
-    # find name
-    list_of_details_for_name = find_specific_tag_in_html(name, "tbody")[0].findChildren()
-    names.append(list_of_details_for_name[0].text)
+    # get links and ids from the main link
+    res_links, res_ids = get_links_and_ids('ATT&CK.html')
 
-    a = list_of_details_for_name[10].text
-    b = find_specific_tag_in_html(name, "table")
+    names = []
+    tactics = []
+    descriptions = []
+    for _link in res_links:
+        # create temp file in order to parse it as requested
+        name = 'temp.html'
 
-    # find tactic
-    tactic = find_specific_tag_in_html(name, "tbody")[0].findChildren()[INDEX_TACTIC]
-    tactics.append(tactic)
+        print("looking now at link: https://collaborate.mitre.org/" + _link)
+        create_html('https://collaborate.mitre.org/' + _link, name)
 
-    # find description
-    description = find_specific_tag_in_html(name, "p")[1].text
-    descriptions.append(description)
+        # create parser
+        soup = bs(name, 'html.parser')
 
-    # find Mitigations
-    # mitigations = find_specific_tag_in_html(name, "ul")
-    # mitigations = soup.find_all("div", {"class": "mw-parser-output"})
+        # find name
+        names.append(find_name(name))
 
-    os.remove(name)
+        # find tactic
+        tactics.append(find_tactic(name))
+
+        # find description
+        descriptions.append(find_description(name))
+
+        # find Mitigations
+        # mitigations = find_specific_tag_in_html(name, "ul")
+        # mitigations = soup.find_all("div", {"class": "mw-parser-output"})
+
+        os.remove(name)
+    create_excel_file(res_ids, names, tactics, descriptions)
+
+
+if __name__ == "__main__":
+    main()
